@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Замыкание/размыкание цепи</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #202124;
+            color: #fff;
+        }
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        .form-container {
+            width: 30%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        form {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        form label {
+            display: block;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        form input {
+            width: calc(100% - 10px);
+            padding: 5px;
+            margin-bottom: 10px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            background-color: #444;
+            color: #fff;
+        }
+        button {
+            width: calc(100% - 20px);
+            padding: 10px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.5s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #plots-container {
+            width: 70%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #plots {
+            background-color: #333;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Ввод параметров -->
+    <div class="form-container">
+        <h1>Параметры</h1>
+        <form id="paramsForm">
+            <label for="inductance">Индуктивность (Гн):</label>
+            <input type="number" step="0.01" min="0" id="inductance" value="1.0">
+            <br>
+            <label for="resistance">Сопротивление (Ом):</label>
+            <input type="number" step="0.01" min="0" id="resistance" value="1.0">
+            <br>
+            <label for="emf">ЭДС источника тока (В):</label>
+            <input type="number" step="0.01" min="0.01" id="emf" value="0.5">
+            <br>
+          <button id="toggleButton" onclick="toggleCircuit()">Разомкнуть цепь</button>
+          <br>
+            <button onclick="updatePlots()">Обновить (Enter)</button>
+        </form>
+        <br>
+        <label for="timeRange">Масштаб времени:</label>
+        <input type="range" min="1" max="1000" value="10" step="1" id="timeRange" onchange="updateTimeRange(this.value)">
+        <output for="timeRange" id="timeRangeValue">10</output>
+    </div>
+
+    <!-- Графики -->
+    <div id="plots-container">
+        <div id="plots"></div>
+    </div>
+</div>
+
+<script>
+  var circuitClosed = true;
+    // Функция для обновления временного диапазона
+    function updateTimeRange(value) {
+        document.getElementById("timeRangeValue").value = value;
+        generatePlots(parseFloat(document.getElementById("inductance").value),
+                      parseFloat(document.getElementById("resistance").value),
+                      parseFloat(document.getElementById("emf").value),
+                      parseFloat(value));
+    }
+    
+    function updatePlots(event) {
+        event.preventDefault();
+        
+        const inductance = parseFloat(document.getElementById("inductance").value);
+        const resistance = parseFloat(document.getElementById("resistance").value);
+        const emf = parseFloat(document.getElementById("emf").value);
+        const timeRange = parseFloat(document.getElementById("timeRange").value);
+        
+        generatePlots(inductance, resistance, emf, timeRange);
+    }
+    
+    function generatePlots(inductance, resistance, emf, timeMax) {
+        const time = Array.from({length: timeMax * 100}, (_, i) => i / 100);
+
+        // Ток
+      if (circuitClosed == true) {
+        var data = time.map(t => (emf / resistance) * (1 - Math.exp(-t * resistance / inductance)));
+      } else {
+        var data = time.map(t => (emf / resistance) * Math.exp(-t * resistance * inductance));
+      }
+        
+        const dataPlot = {
+            x: time,
+            y: data,
+            mode: 'lines',
+            name: '<span style="color: #fff;">Ток (А)</span>'
+        };
+
+        const layout = {
+            title: '<span style="color: #fff;">График</span>',
+            xaxis: {
+                title: '<span style="color: #fff;">Время (с)</span>',
+                color: '#fff',
+                titlefont: {
+                    size: 14,
+                    color: '#fff'
+                }
+            },
+            yaxis: {
+                title: '<span style="color: #fff;">Значение</span>',
+                color: '#fff',
+                titlefont: {
+                    size: 14,
+                    color: '#fff'
+                }
+            },
+            plot_bgcolor: '#333',
+            paper_bgcolor: '#333'
+        };
+        
+        Plotly.newPlot('plots', [dataPlot], layout);
+    }
+      function toggleCircuit() {
+      circuitClosed = !circuitClosed; // Инвертировать состояние цепи
+      var button = document.getElementById("toggleButton");
+      var connector = document.getElementById("connector");
+      if (circuitClosed) {
+        button.textContent = "Разомкнуть цепь";
+        connector.style.display = "block";
+      } else {
+        button.textContent = "Замкнуть цепь";
+        connector.style.display = "none";
+      }
+      updatePlots();
+    }
+  
+    document.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        updatePlots();
+      }
+    });
+    
+    document.getElementById("paramsForm").addEventListener("submit", updatePlots);
+    
+    generatePlots(1.0, 1.0, 0.5, 10);
+</script>
+
+</body>
+</html>
